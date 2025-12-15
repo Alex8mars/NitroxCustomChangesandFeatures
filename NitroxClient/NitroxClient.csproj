@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net472;net9.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Nitrox.Model.Subnautica\Nitrox.Model.Subnautica.csproj" />
+        <ProjectReference Include="..\Nitrox.Model\Nitrox.Model.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Include="LitJson">
+            <HintPath>$(GameManagedDir)\LitJson.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="DiscordGameSDKWrapper" />
+    </ItemGroup>
+
+</Project>
