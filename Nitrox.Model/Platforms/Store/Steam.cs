@@ -226,7 +226,8 @@ public sealed class Steam : IGamePlatform
             return new()
             {
                 FileName = steamExe,
-                Arguments = args
+                Arguments = args,
+                WorkingDirectory = steamPath
             };
         }
 
@@ -236,6 +237,7 @@ public sealed class Steam : IGamePlatform
         {
             FileName = gameFilePath,
             Arguments = args,
+            WorkingDirectory = Path.GetDirectoryName(gameFilePath),
             EnvironmentVariables =
             {
                 [NitroxUser.LAUNCHER_PATH_ENV_KEY] = NitroxUser.LauncherPath,
