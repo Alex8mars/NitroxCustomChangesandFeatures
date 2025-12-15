@@ -19,6 +19,7 @@ namespace NitroxClient.GameLogic
     public class Fires
     {
         private readonly IPacketSender packetSender;
+        private readonly Cyclops cyclops;
 
         /// <summary>
         /// Used to reduce the <see cref="FireDoused"/> packet spam as fires are being doused. A packet is only sent after
@@ -31,9 +32,10 @@ namespace NitroxClient.GameLogic
         /// </summary>
         private const float FIRE_DOUSE_AMOUNT_TRIGGER = 5f;
 
-        public Fires(IPacketSender packetSender)
+        public Fires(IPacketSender packetSender, Cyclops cyclops)
         {
             this.packetSender = packetSender;
+            this.cyclops = cyclops;
         }
 
         /// <summary>
@@ -53,6 +55,8 @@ namespace NitroxClient.GameLogic
 
             CyclopsFireCreated packet = new CyclopsFireCreated(fireId, subRootId, room.roomLinks.room, nodeIndex);
             packetSender.Send(packet);
+
+            cyclops.OnFireCreated(fire.fireSubRoot);
         }
 
         /// <summary>
@@ -74,14 +78,23 @@ namespace NitroxClient.GameLogic
             {
                 float summedDouseAmount = fireDouseAmount[fireId] + douseAmount;
 
-                if (summedDouseAmount > FIRE_DOUSE_AMOUNT_TRIGGER)
+                if (summedDouseAmount >= FIRE_DOUSE_AMOUNT_TRIGGER)
                 {
-                    // It is significantly faster to keep the key as a 0 value than to remove it and re-add it later.
-                    fireDouseAmount[fireId] = 0;
+                    fireDouseAmount[fireId] = summedDouseAmount - FIRE_DOUSE_AMOUNT_TRIGGER;
 
-                    FireDoused packet = new FireDoused(fireId, douseAmount);
+                    FireDoused packet = new FireDoused(fireId, summedDouseAmount);
                     packetSender.Send(packet);
+                    cyclops.OnFireDoused(fire.fireSubRoot);
                 }
+                else
+                {
+                    fireDouseAmount[fireId] = summedDouseAmount;
+                }
+            }
+
+            if (!fire.livemixin.IsAlive() || fire.IsExtinguished())
+            {
+                cyclops.OnFireDoused(fire.fireSubRoot);
             }
         }
 
@@ -100,11 +113,11 @@ namespace NitroxClient.GameLogic
             {
                 Fire existingFire = transform2.GetComponentInChildren<Fire>();
 
-                if (existingFire.TryGetNitroxId(out NitroxId existingFireId) && existingFireId != fireData.CyclopsId)
+                if (existingFire.TryGetNitroxId(out NitroxId existingFireId) && existingFireId != fireData.FireId)
                 {
-                    Log.Error($"[Fires.Create Fire already exists at node index {fireData.NodeIndex}! Replacing existing Fire Id {existingFireId} with Id {fireData.CyclopsId}]");
+                    Log.Error($"[Fires.Create Fire already exists at node index {fireData.NodeIndex}! Replacing existing Fire Id {existingFireId} with Id {fireData.FireId}]");
 
-                    NitroxEntity.SetNewId(existingFire.gameObject, fireData.CyclopsId);
+                    NitroxEntity.SetNewId(existingFire.gameObject, fireData.FireId);
                 }
 
                 return;
