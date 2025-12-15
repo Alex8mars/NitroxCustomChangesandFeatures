@@ -47,6 +47,16 @@ namespace NitroxClient.GameLogic
             packetSender.Send(packet);
         }
 
+        public void OnFireCreated(SubRoot subRoot)
+        {
+            BroadcastDamageState(subRoot, Optional.Empty);
+        }
+
+        public void OnFireDoused(SubRoot subRoot)
+        {
+            BroadcastDamageState(subRoot, Optional.Empty);
+        }
+
         public void LaunchDecoy(NitroxId id)
         {
             GameObject cyclops = NitroxEntity.RequireObjectFrom(id);
