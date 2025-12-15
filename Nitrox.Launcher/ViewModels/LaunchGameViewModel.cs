@@ -236,6 +236,18 @@ internal partial class LaunchGameViewModel(DialogService dialogService, ServerSe
 
         // Start game & gaming platform if needed.
         string launchArguments = $"{keyValueStore.GetLaunchArguments(gameInfo)} {string.Join(" ", args ?? NitroxEnvironment.CommandLineArgs)}";
+        if (GameInspect.TryCreateBepInExStartInfo(NitroxUser.GamePath, gameExePath, launchArguments, out ProcessStartInfo bepinexStartInfo))
+        {
+            Log.Info("BepInEx bootstrap script detected; launching via run_bepinex.sh to ensure loader initialization");
+            ProcessEx game = ProcessEx.From(bepinexStartInfo);
+            if (game is null)
+            {
+                throw new Exception("Game failed to start through BepInEx bootstrapper");
+            }
+
+            return;
+        }
+
         ProcessEx game = NitroxUser.GamePlatform switch
         {
             Steam => await Steam.StartGameAsync(gameExePath, launchArguments, gameInfo.SteamAppId, ShouldSkipSteam(launchArguments), keyValueStore.GetUseBigPictureMode()),
