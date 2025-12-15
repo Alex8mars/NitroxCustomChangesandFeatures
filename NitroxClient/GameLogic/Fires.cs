@@ -78,15 +78,23 @@ namespace NitroxClient.GameLogic
             {
                 float summedDouseAmount = fireDouseAmount[fireId] + douseAmount;
 
-                if (summedDouseAmount > FIRE_DOUSE_AMOUNT_TRIGGER)
+                if (summedDouseAmount >= FIRE_DOUSE_AMOUNT_TRIGGER)
                 {
-                    // It is significantly faster to keep the key as a 0 value than to remove it and re-add it later.
-                    fireDouseAmount[fireId] = 0;
+                    fireDouseAmount[fireId] = summedDouseAmount - FIRE_DOUSE_AMOUNT_TRIGGER;
 
-                    FireDoused packet = new FireDoused(fireId, douseAmount);
+                    FireDoused packet = new FireDoused(fireId, summedDouseAmount);
                     packetSender.Send(packet);
                     cyclops.OnFireDoused(fire.fireSubRoot);
                 }
+                else
+                {
+                    fireDouseAmount[fireId] = summedDouseAmount;
+                }
+            }
+
+            if (!fire.livemixin.IsAlive() || fire.IsExtinguished())
+            {
+                cyclops.OnFireDoused(fire.fireSubRoot);
             }
 
             if (!fire.livemixin.IsAlive() || fire.IsExtinguished())
@@ -110,11 +118,11 @@ namespace NitroxClient.GameLogic
             {
                 Fire existingFire = transform2.GetComponentInChildren<Fire>();
 
-                if (existingFire.TryGetNitroxId(out NitroxId existingFireId) && existingFireId != fireData.CyclopsId)
+                if (existingFire.TryGetNitroxId(out NitroxId existingFireId) && existingFireId != fireData.FireId)
                 {
-                    Log.Error($"[Fires.Create Fire already exists at node index {fireData.NodeIndex}! Replacing existing Fire Id {existingFireId} with Id {fireData.CyclopsId}]");
+                    Log.Error($"[Fires.Create Fire already exists at node index {fireData.NodeIndex}! Replacing existing Fire Id {existingFireId} with Id {fireData.FireId}]");
 
-                    NitroxEntity.SetNewId(existingFire.gameObject, fireData.CyclopsId);
+                    NitroxEntity.SetNewId(existingFire.gameObject, fireData.FireId);
                 }
 
                 return;
