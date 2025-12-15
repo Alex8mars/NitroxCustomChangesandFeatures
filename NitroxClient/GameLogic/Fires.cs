@@ -96,6 +96,11 @@ namespace NitroxClient.GameLogic
             {
                 cyclops.OnFireDoused(fire.fireSubRoot);
             }
+
+            if (!fire.livemixin.IsAlive() || fire.IsExtinguished())
+            {
+                cyclops.OnFireDoused(fire.fireSubRoot);
+            }
         }
 
         /// <summary>
