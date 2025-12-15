@@ -11,6 +11,7 @@ public class SimulationWhitelist : ISimulationWhitelist
         TechType.Shocker.ToDto(),
         TechType.Biter.ToDto(),
         TechType.Blighter.ToDto(),
+        TechType.Bleeder.ToDto(),
         TechType.BoneShark.ToDto(),
         TechType.Crabsnake.ToDto(),
         TechType.CrabSquid.ToDto(),

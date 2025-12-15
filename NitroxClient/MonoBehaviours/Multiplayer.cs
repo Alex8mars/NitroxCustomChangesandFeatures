@@ -226,6 +226,7 @@ namespace NitroxClient.MonoBehaviours
             // UWE developers added noisy logging for non-whitelisted components during serialization.
             // We add NitroxEntiy in here to avoid a large amount of log spam.
             ProtobufSerializer.componentWhitelist.Add(nameof(NitroxEntity));
+            ProtobufSerializer.componentWhitelist.Add(nameof(BleederAttachTarget));
         }
 
         private void SceneManager_sceneLoaded(Scene scene, LoadSceneMode loadMode)
