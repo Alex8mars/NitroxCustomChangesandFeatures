@@ -64,12 +64,8 @@ internal static class GameInspect
 
     public static void WarnIfBepInExMods(string gameDir)
     {
-        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
-        {
-            return;
-        }
-        string bepRoot = Path.Combine(gameDir, "BepInEx");
-        if (!Directory.Exists(bepRoot))
+        string bepRoot = GetBepInExRoot(gameDir);
+        if (bepRoot == string.Empty)
         {
             return;
         }
@@ -93,5 +89,18 @@ internal static class GameInspect
                 return [];
             }
         }
+    }
+
+    public static bool HasBepInExInstallation(string gameDir) => GetBepInExRoot(gameDir) != string.Empty;
+
+    private static string GetBepInExRoot(string gameDir)
+    {
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
+        {
+            return string.Empty;
+        }
+
+        string bepRoot = Path.Combine(gameDir, "BepInEx");
+        return Directory.Exists(bepRoot) ? bepRoot : string.Empty;
     }
 }

@@ -254,6 +254,12 @@ internal partial class LaunchGameViewModel(DialogService dialogService, ServerSe
 
     private bool ShouldSkipSteam(string args)
     {
+        if (GameInspect.HasBepInExInstallation(NitroxUser.GamePath))
+        {
+            Log.Info("BepInEx installation detected; launching game executable directly to allow mod loader to initialize");
+            return true;
+        }
+
         // Check if Steam overlay is enabled by user setting
         if (keyValueStore.GetUseBigPictureMode())
         {
