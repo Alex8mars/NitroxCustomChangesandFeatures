@@ -1,4 +1,5 @@
-﻿using System.IO;
+using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using Nitrox.Model.Helper;
 using Nitrox.Model.Platforms.Discovery.Models;
@@ -19,10 +20,14 @@ public sealed class Discord : IGamePlatform
 
     public static async Task<ProcessEx> StartGameAsync(string pathToGameExe, string launchArguments)
     {
+        IEnumerable<(string, string)> environment = BepInExEnvironment.MergeWith(
+            [(NitroxUser.LAUNCHER_PATH_ENV_KEY, NitroxUser.LauncherPath)],
+            pathToGameExe);
+
         return await Task.FromResult(
             ProcessEx.Start(
                 pathToGameExe,
-                [(NitroxUser.LAUNCHER_PATH_ENV_KEY, NitroxUser.LauncherPath)],
+                environment,
                 Path.GetDirectoryName(pathToGameExe),
                 launchArguments
             )
