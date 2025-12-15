@@ -196,9 +196,11 @@ namespace NitroxClient.GameLogic
                 {
                     if (roomFire.Value.spawnNodes[i].childCount > 0)
                     {
-                        if (!roomFire.Value.spawnNodes[i].GetComponentInChildren<Fire>().TryGetIdOrWarn(out NitroxId fireId))
+                        Fire fire = roomFire.Value.spawnNodes[i].GetComponentInChildren<Fire>();
+
+                        if (!fire.TryGetIdOrWarn(out NitroxId fireId))
                         {
-                            yield break;
+                            fireId = NitroxEntity.GenerateNewId(fire.gameObject);
                         }
 
                         yield return new CyclopsFireData(fireId, subRootId, roomFire.Key, i);

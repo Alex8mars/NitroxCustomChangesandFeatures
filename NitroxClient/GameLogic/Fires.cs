@@ -46,7 +46,7 @@ namespace NitroxClient.GameLogic
         {
             if (!fire.TryGetIdOrWarn(out NitroxId fireId))
             {
-                return;
+                fireId = NitroxEntity.GenerateNewId(fire.gameObject);
             }
             if (!fire.fireSubRoot.TryGetIdOrWarn(out NitroxId subRootId))
             {
@@ -142,12 +142,9 @@ namespace NitroxClient.GameLogic
             PrefabSpawn component = transform2.GetComponent<PrefabSpawn>();
             if (!component)
             {
-                return;
-            }
-            else
-            {
                 Log.Error(
                     $"[{nameof(CyclopsFireCreatedProcessor)} Cannot create new Cyclops fire! PrefabSpawn component could not be found in fire node! Fire Id: {fireData.FireId} SubRoot Id: {fireData.CyclopsId} Room: {fireData.Room} NodeIndex: {fireData.NodeIndex}]");
+                return;
             }
 
             component.SpawnManual(delegate(GameObject fireGO)
