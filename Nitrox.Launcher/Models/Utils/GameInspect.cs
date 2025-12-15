@@ -93,48 +93,7 @@ internal static class GameInspect
         }
     }
 
-    public static bool HasBepInExInstallation(string gameDir)
-    {
-        if (string.IsNullOrWhiteSpace(gameDir))
-        {
-            return false;
-        }
-
-        if (File.Exists(Path.Combine(gameDir, "run_bepinex.sh")))
-        {
-            return true;
-        }
-
-        return GetBepInExRoot(gameDir) != string.Empty;
-    }
-
-    public static bool TryCreateBepInExStartInfo(string gameDir, string gameExePath, string launchArguments, out ProcessStartInfo startInfo)
-    {
-        startInfo = default!;
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            return false; // Windows bootstrapper loads automatically via winhttp.dll
-        }
-
-        string scriptPath = Path.Combine(gameDir, "run_bepinex.sh");
-        if (!File.Exists(scriptPath))
-        {
-            return false;
-        }
-
-        string escapedArgs = launchArguments?.Trim() ?? string.Empty;
-        startInfo = new ProcessStartInfo
-        {
-            FileName = "/bin/sh",
-            Arguments = $"\"{scriptPath}\" \"{gameExePath}\" {escapedArgs}".Trim(),
-            WorkingDirectory = gameDir,
-            UseShellExecute = false,
-        };
-        startInfo.EnvironmentVariables[NitroxUser.LAUNCHER_PATH_ENV_KEY] = NitroxUser.LauncherPath;
-
-        return true;
-    }
+    public static bool HasBepInExInstallation(string gameDir) => GetBepInExRoot(gameDir) != string.Empty;
 
     private static string GetBepInExRoot(string gameDir)
     {
