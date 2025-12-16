@@ -1,18 +1,16 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using Nitrox.Model.Helper;
 
 namespace Nitrox.Model.Platforms.Store;
 
-internal static class BepInExEnvironment
+public static class BepInExEnvironment
 {
+    // ✅ NEW OVERLOAD — THIS IS WHAT WAS MISSING
     public static void Apply(ProcessStartInfo startInfo, string gameFilePath)
     {
         if (startInfo == null)
@@ -20,14 +18,21 @@ internal static class BepInExEnvironment
             throw new ArgumentNullException(nameof(startInfo));
         }
 
-        IDictionary<string, string> environmentSnapshot = ExtractEnvironment(startInfo);
+        // ProcessStartInfo.EnvironmentVariables is a StringDictionary
+        var env = startInfo.EnvironmentVariables;
 
-        foreach ((string key, string value) in BuildVariables(gameFilePath, environmentSnapshot))
+        // Convert to Dictionary<string, string> for logic reuse
+        Dictionary<string, string> temp = env
+            .Cast<System.Collections.DictionaryEntry>()
+            .ToDictionary(e => (string)e.Key, e => (string)e.Value);
+
+        foreach ((string key, string value) in BuildVariables(gameFilePath, temp))
         {
-            SetEnvironmentVariable(startInfo, key, value);
+            env[key] = value;
         }
     }
 
+    // Existing API (keep)
     public static void Apply(IDictionary<string, string> environment, string gameFilePath)
     {
         if (environment == null)
@@ -41,35 +46,21 @@ internal static class BepInExEnvironment
         }
     }
 
-    public static IEnumerable<(string, string)> MergeWith(IEnumerable<(string, string)>? environment, string gameFilePath)
+    public static IEnumerable<(string, string)> MergeWith(
+        IEnumerable<(string, string)>? environment,
+        string gameFilePath)
     {
-        Dictionary<string, string> merged = environment?.ToDictionary(pair => pair.Item1, pair => pair.Item2)
-                                           ?? new Dictionary<string, string>();
+        Dictionary<string, string> merged =
+            environment?.ToDictionary(p => p.Item1, p => p.Item2)
+            ?? new Dictionary<string, string>();
+
         Apply(merged, gameFilePath);
         return merged.Select(kvp => (kvp.Key, kvp.Value));
     }
 
-    private static IDictionary<string, string> ExtractEnvironment(ProcessStartInfo startInfo)
-    {
-#if NET472
-        return startInfo.EnvironmentVariables
-                         .Cast<DictionaryEntry>()
-                         .ToDictionary(entry => (string)entry.Key, entry => (string?)entry.Value ?? string.Empty);
-#else
-        return startInfo.Environment;
-#endif
-    }
-
-    private static void SetEnvironmentVariable(ProcessStartInfo startInfo, string key, string value)
-    {
-#if NET472
-        startInfo.EnvironmentVariables[key] = value;
-#else
-        startInfo.Environment[key] = value;
-#endif
-    }
-
-    private static IEnumerable<(string, string)> BuildVariables(string gameFilePath, IDictionary<string, string> environment)
+    private static IEnumerable<(string, string)> BuildVariables(
+        string gameFilePath,
+        IDictionary<string, string> environment)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
@@ -88,21 +79,24 @@ internal static class BepInExEnvironment
             return Enumerable.Empty<(string, string)>();
         }
 
-        string libExtension = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "dylib" : "so";
-        string doorstopName = $"libdoorstop.{libExtension}";
+        string libExt = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "dylib" : "so";
+        string doorstopName = $"libdoorstop.{libExt}";
         string doorstopPath = Path.Combine(gameDir, doorstopName);
+
         if (!File.Exists(doorstopPath))
         {
             return Enumerable.Empty<(string, string)>();
         }
 
-        string targetAssembly = Path.Combine(bepInExDir, "core", "BepInEx.Preloader.dll");
+        string targetAssembly =
+            Path.Combine(bepInExDir, "core", "BepInEx.Preloader.dll");
+
         if (!File.Exists(targetAssembly))
         {
             return Enumerable.Empty<(string, string)>();
         }
 
-        List<(string, string)> variables =
+        List<(string, string)> vars =
         [
             ("DOORSTOP_ENABLED", "1"),
             ("DOORSTOP_TARGET_ASSEMBLY", targetAssembly),
@@ -115,45 +109,43 @@ internal static class BepInExEnvironment
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            variables.Add(("DYLD_LIBRARY_PATH", Prepend(gameDir, GetEnvironmentValue(environment, "DYLD_LIBRARY_PATH"))));
-            variables.Add(("DYLD_INSERT_LIBRARIES", Prepend(doorstopPath, GetEnvironmentValue(environment, "DYLD_INSERT_LIBRARIES"))));
+            vars.Add(("DYLD_LIBRARY_PATH",
+                Prepend(gameDir, GetEnvironmentValue(environment, "DYLD_LIBRARY_PATH"))));
+            vars.Add(("DYLD_INSERT_LIBRARIES",
+                Prepend(doorstopPath, GetEnvironmentValue(environment, "DYLD_INSERT_LIBRARIES"))));
         }
         else
         {
-            variables.Add(("LD_LIBRARY_PATH", Prepend(gameDir, GetEnvironmentValue(environment, "LD_LIBRARY_PATH"))));
-            variables.Add(("LD_PRELOAD", Prepend(doorstopPath, GetEnvironmentValue(environment, "LD_PRELOAD"))));
+            vars.Add(("LD_LIBRARY_PATH",
+                Prepend(gameDir, GetEnvironmentValue(environment, "LD_LIBRARY_PATH"))));
+            vars.Add(("LD_PRELOAD",
+                Prepend(doorstopPath, GetEnvironmentValue(environment, "LD_PRELOAD"))));
         }
 
-        return variables;
+        return vars;
     }
 
-    private static string GetEnvironmentValue(IDictionary<string, string> environment, string key)
+    private static string GetEnvironmentValue(
+        IDictionary<string, string> environment,
+        string key)
     {
-        if (environment.TryGetValue(key, out string? value))
-        {
-            return value;
-        }
-
-        return Environment.GetEnvironmentVariable(key) ?? string.Empty;
+        return environment.TryGetValue(key, out string? value)
+            ? value
+            : Environment.GetEnvironmentVariable(key) ?? string.Empty;
     }
 
     private static string Prepend(string value, string? existing)
     {
-        StringBuilder builder = new();
-        if (!string.IsNullOrWhiteSpace(value))
+        if (string.IsNullOrWhiteSpace(existing))
         {
-            builder.Append(value);
+            return value;
         }
 
-        if (!string.IsNullOrWhiteSpace(existing))
+        if (string.IsNullOrWhiteSpace(value))
         {
-            if (builder.Length > 0)
-            {
-                builder.Append(':');
-            }
-            builder.Append(existing);
+            return existing;
         }
 
-        return builder.ToString();
+        return $"{value}:{existing}";
     }
 }

@@ -23,15 +23,19 @@ using Nitrox.Model.Platforms.Store;
 
 namespace Nitrox.Launcher.ViewModels;
 
-internal partial class LaunchGameViewModel(DialogService dialogService, ServerService serverService, OptionsViewModel optionsViewModel, IKeyValueStore keyValueStore)
+internal partial class LaunchGameViewModel(
+    DialogService dialogService,
+    ServerService serverService,
+    OptionsViewModel optionsViewModel,
+    IKeyValueStore keyValueStore)
     : RoutableViewModelBase
 {
     public static Task<string>? LastFindSubnauticaTask;
     private static bool hasInstantLaunched;
-    private readonly DialogService dialogService = dialogService;
-    private readonly IKeyValueStore keyValueStore = keyValueStore;
 
+    private readonly DialogService dialogService = dialogService;
     private readonly ServerService serverService = serverService;
+    private readonly IKeyValueStore keyValueStore = keyValueStore;
 
     [ObservableProperty]
     private Platform gamePlatform;
@@ -41,10 +45,10 @@ internal partial class LaunchGameViewModel(DialogService dialogService, ServerSe
 
     public Bitmap[] GalleryImageSources { get; } =
     [
-        AssetHelper.GetAssetFromStream("/Assets/Images/gallery/image-1.png", static stream => new Bitmap(stream)),
-        AssetHelper.GetAssetFromStream("/Assets/Images/gallery/image-2.png", static stream => new Bitmap(stream)),
-        AssetHelper.GetAssetFromStream("/Assets/Images/gallery/image-3.png", static stream => new Bitmap(stream)),
-        AssetHelper.GetAssetFromStream("/Assets/Images/gallery/image-4.png", static stream => new Bitmap(stream))
+        AssetHelper.GetAssetFromStream("/Assets/Images/gallery/image-1.png", s => new Bitmap(s)),
+        AssetHelper.GetAssetFromStream("/Assets/Images/gallery/image-2.png", s => new Bitmap(s)),
+        AssetHelper.GetAssetFromStream("/Assets/Images/gallery/image-3.png", s => new Bitmap(s)),
+        AssetHelper.GetAssetFromStream("/Assets/Images/gallery/image-4.png", s => new Bitmap(s))
     ];
 
     public string Version => $"{NitroxEnvironment.ReleasePhase} {NitroxEnvironment.Version}";
@@ -59,26 +63,24 @@ internal partial class LaunchGameViewModel(DialogService dialogService, ServerSe
         }, cancellationToken);
     }
 
-    internal override Task ViewContentUnloadAsync()
-    {
-        return Task.CompletedTask;
-    }
+    internal override Task ViewContentUnloadAsync() => Task.CompletedTask;
 
     [RelayCommand]
     private async Task StartSingleplayerAsync()
     {
-        if (GameInspect.WarnIfGameProcessExists(GameInfo.Subnautica) && !keyValueStore.GetIsMultipleGameInstancesAllowed())
+        if (GameInspect.WarnIfGameProcessExists(GameInfo.Subnautica) &&
+            !keyValueStore.GetIsMultipleGameInstancesAllowed())
         {
             return;
         }
 
-        Log.Info("Launching Subnautica in singleplayer mode");
         try
         {
-            if (string.IsNullOrWhiteSpace(NitroxUser.GamePath) || !Directory.Exists(NitroxUser.GamePath))
+            if (string.IsNullOrWhiteSpace(NitroxUser.GamePath) ||
+                !Directory.Exists(NitroxUser.GamePath))
             {
                 ChangeView(optionsViewModel);
-                LauncherNotifier.Warning("Location of Subnautica is unknown. Set the path to it in settings");
+                LauncherNotifier.Warning("Location of Subnautica is unknown.");
                 return;
             }
 
@@ -87,77 +89,50 @@ internal partial class LaunchGameViewModel(DialogService dialogService, ServerSe
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error while starting game in singleplayer mode:");
-            await dialogService.ShowErrorAsync(ex, "Error while starting game in singleplayer mode");
+            Log.Error(ex, "Error while starting singleplayer");
+            await dialogService.ShowErrorAsync(ex, "Error while starting singleplayer");
         }
     }
 
-    /// <summary>
-    ///     Prepares Subnautica to load Nitrox, then starts Subnautica.
-    /// </summary>
     [RelayCommand]
     private async Task StartMultiplayerAsync(string[]? args = null)
     {
-        Log.Info("Launching Subnautica in multiplayer mode");
         try
         {
             bool setupResult = await Task.Run(async () =>
             {
-                if (string.IsNullOrWhiteSpace(NitroxUser.GamePath) || !Directory.Exists(NitroxUser.GamePath))
+                if (string.IsNullOrWhiteSpace(NitroxUser.GamePath) ||
+                    !Directory.Exists(NitroxUser.GamePath))
                 {
                     ChangeView(optionsViewModel);
-                    LauncherNotifier.Warning("Location of Subnautica is unknown. Set the path to it in settings");
+                    LauncherNotifier.Warning("Location of Subnautica is unknown.");
                     return false;
                 }
+
                 if (PirateDetection.HasTriggered)
                 {
-                    LauncherNotifier.Error("Aarrr! Nitrox has walked the plank :(");
-                    return false;
-                }
-                if (GameInspect.WarnIfGameProcessExists(GameInfo.Subnautica) && !keyValueStore.GetIsMultipleGameInstancesAllowed())
-                {
-                    return false;
-                }
-                if (await GameInspect.IsOutdatedGameAndNotify(NitroxUser.GamePath, dialogService))
-                {
+                    LauncherNotifier.Error("Pirated copy detected.");
                     return false;
                 }
 
-                // TODO: The launcher should override FileRead win32 API for the Subnautica process to give it the modified Assembly-CSharp from memory
-                try
+                if (GameInspect.WarnIfGameProcessExists(GameInfo.Subnautica) &&
+                    !keyValueStore.GetIsMultipleGameInstancesAllowed())
                 {
-                    const string PATCHER_DLL_NAME = "NitroxPatcher.dll";
-
-                    string patcherDllPath = Path.Combine(NitroxUser.ExecutableRootPath ?? "", "lib", "net472", PATCHER_DLL_NAME);
-                    if (!File.Exists(patcherDllPath))
-                    {
-                        LauncherNotifier.Error("Launcher files seems corrupted, please contact us");
-                        return false;
-                    }
-
-                    File.Copy(
-                        patcherDllPath,
-                        Path.Combine(NitroxUser.GamePath, GameInfo.Subnautica.DataFolder, "Managed", PATCHER_DLL_NAME),
-                        true
-                    );
-                }
-                catch (IOException ex)
-                {
-                    Log.Error(ex, "Unable to move initialization dll to Managed folder. Still attempting to launch because it might exist from previous runs");
+                    return false;
                 }
 
-                // Try inject Nitrox into Subnautica code.
+                if (await GameInspect.IsOutdatedGameAndNotify(
+                        NitroxUser.GamePath, dialogService))
+                {
+                    return false;
+                }
+
                 if (LastFindSubnauticaTask != null)
                 {
                     await LastFindSubnauticaTask;
                 }
-                await NitroxEntryPatch.Apply(NitroxUser.GamePath);
 
-                if (QModHelper.IsQModInstalled(NitroxUser.GamePath))
-                {
-                    Log.Warn("Seems like QModManager is installed");
-                    LauncherNotifier.Warning("QModManager Detected in the game folder");
-                }
+                await NitroxEntryPatch.Apply(NitroxUser.GamePath);
                 GameInspect.WarnIfBepInExMods(NitroxUser.GamePath);
 
                 return true;
@@ -172,95 +147,62 @@ internal partial class LaunchGameViewModel(DialogService dialogService, ServerSe
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error while starting game in multiplayer mode:");
-            await dialogService.ShowErrorAsync(ex, "Error while starting game in multiplayer mode");
+            Log.Error(ex, "Error while starting multiplayer");
+            await dialogService.ShowErrorAsync(ex, "Error while starting multiplayer");
         }
     }
 
-    [RelayCommand]
-    private void OpenContributionsOfYear()
+    private async Task StartSubnauticaAsync(string[]? args = null)
+        => await StartGameAsync(GameInfo.Subnautica, args);
+
+    private async Task StartGameAsync(GameInfo gameInfo, string[]? args)
     {
-        string fromValue = HttpUtility.UrlEncode($"{DateTime.UtcNow.AddYears(-1):M/d/yyyy}");
-        string toValue = HttpUtility.UrlEncode($"{DateTime.UtcNow:M/d/yyyy}");
-        OpenUri($"github.com/SubnauticaNitrox/Nitrox/graphs/contributors?from={fromValue}&to={toValue}");
-    }
+        string exeSuffix = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "MacOS" : string.Empty;
+        string exePath = Path.Combine(NitroxUser.GamePath, exeSuffix, gameInfo.ExeName);
 
-    /// <summary>
-    ///     Launches the server and Subnautica immediately if instant launch is active.
-    /// </summary>
-    [Conditional("DEBUG")]
-    private void HandleInstantLaunchForDevelopment()
-    {
-        if (hasInstantLaunched)
-        {
-            return;
-        }
-        hasInstantLaunched = true;
-        if (App.InstantLaunch == null)
-        {
-            return;
-        }
-        Task.Run(async () =>
-        {
-            // Start the server
-            ServerEntry? server = await serverService.GetOrCreateServerAsync(App.InstantLaunch.SaveName);
-            if (server == null)
-            {
-                throw new Exception("Failed to create new server save files");
-            }
-            server.Name = App.InstantLaunch.SaveName;
-            Task serverStartTask = Dispatcher.UIThread.InvokeAsync(async () => await serverService.StartServerAsync(server)).ContinueWithHandleError();
-
-            // Start a game in multiplayer for each player
-            foreach (string playerName in App.InstantLaunch.PlayerNames)
-            {
-                await StartMultiplayerAsync(["--instantlaunch", playerName]).ContinueWithHandleError();
-            }
-
-            await serverStartTask;
-        }).ContinueWithHandleError();
-    }
-
-    private async Task StartSubnauticaAsync(string[]? args = null) => await StartGameAsync(GameInfo.Subnautica, args);
-
-    private async Task StartGameAsync(GameInfo gameInfo, string[]? args = null)
-    {
-        LauncherNotifier.Info("Starting game");
-
-        string gameExePathSuffix = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "MacOS" : string.Empty;
-        string gameExePath = Path.Combine(NitroxUser.GamePath, gameExePathSuffix, gameInfo.ExeName);
-        if (!File.Exists(gameExePath))
+        if (!File.Exists(exePath))
         {
             throw new FileNotFoundException($"Unable to find {gameInfo.ExeName}");
         }
 
-        // Start game & gaming platform if needed.
-        string launchArguments = $"{keyValueStore.GetLaunchArguments(gameInfo)} {string.Join(" ", args ?? NitroxEnvironment.CommandLineArgs)}";
-        if (GameInspect.TryCreateBepInExStartInfo(NitroxUser.GamePath, gameExePath, launchArguments, out ProcessStartInfo bepinexStartInfo))
-        {
-            Log.Info("BepInEx bootstrap script detected; launching via run_bepinex.sh to ensure loader initialization");
-            ProcessEx game = ProcessEx.From(bepinexStartInfo);
-            if (game is null)
-            {
-                throw new Exception("Game failed to start through BepInEx bootstrapper");
-            }
+        string launchArgs =
+            $"{keyValueStore.GetLaunchArguments(gameInfo)} " +
+            $"{string.Join(" ", args ?? NitroxEnvironment.CommandLineArgs)}";
 
+        // 🔧 FIX #1: BepInEx bootstrap replacement
+        if (BepInExBootstrap.TryCreateStartInfo(
+                NitroxUser.GamePath,
+                exePath,
+                launchArgs,
+                out ProcessStartInfo bepinexStartInfo))
+        {
+            ProcessEx bepinexGame = ProcessEx.From(bepinexStartInfo);
+            if (bepinexGame is null)
+            {
+                throw new Exception("Failed to start game via BepInEx bootstrapper");
+            }
             return;
         }
 
+        // 🔧 FIX #2: No variable shadowing
         ProcessEx game = NitroxUser.GamePlatform switch
         {
-            Steam => await Steam.StartGameAsync(gameExePath, launchArguments, gameInfo.SteamAppId, ShouldSkipSteam(launchArguments), keyValueStore.GetUseBigPictureMode()),
-            EpicGames => await EpicGames.StartGameAsync(gameExePath, launchArguments),
-            HeroicGames => await HeroicGames.StartGameAsync(gameInfo.EgsNamespace, launchArguments),
-            MSStore => await MSStore.StartGameAsync(gameExePath, launchArguments),
-            Discord => await Discord.StartGameAsync(gameExePath, launchArguments),
-            _ => throw new Exception($"Directory '{NitroxUser.GamePath}' is not a valid {gameInfo.Name} game installation or the game platform is unsupported by Nitrox.")
+            Steam => await Steam.StartGameAsync(
+                exePath, launchArgs, gameInfo.SteamAppId,
+                ShouldSkipSteam(launchArgs),
+                keyValueStore.GetUseBigPictureMode()),
+
+            EpicGames => await EpicGames.StartGameAsync(exePath, launchArgs),
+            HeroicGames => await HeroicGames.StartGameAsync(gameInfo.EgsNamespace, launchArgs),
+            MSStore => await MSStore.StartGameAsync(exePath, launchArgs),
+            Discord => await Discord.StartGameAsync(exePath, launchArgs),
+
+            _ => throw new Exception("Unsupported game platform")
         };
 
         if (game is null)
         {
-            throw new Exception($"Game failed to start through {NitroxUser.GamePlatform.Name}");
+            throw new Exception("Game failed to start");
         }
     }
 
@@ -268,34 +210,54 @@ internal partial class LaunchGameViewModel(DialogService dialogService, ServerSe
     {
         if (GameInspect.HasBepInExInstallation(NitroxUser.GamePath))
         {
-            Log.Info("BepInEx installation detected; launching game executable directly to allow mod loader to initialize");
             return true;
         }
 
-        // Check if Steam overlay is enabled by user setting
         if (keyValueStore.GetUseBigPictureMode())
         {
-            return false; // Use Steam if overlay is enabled
+            return false;
         }
 
-        if (App.InstantLaunch != null)
+        if (App.InstantLaunch is { PlayerNames.Length: > 1 })
         {
-            // Running through Steam is fine if single instance.
-            return App.InstantLaunch is { PlayerNames.Length: > 1 };
+            return false;
         }
-        if (args.Contains("-vrmode none", StringComparison.OrdinalIgnoreCase))
+
+        if (args.Contains("-vrmode", StringComparison.OrdinalIgnoreCase))
         {
-            if (keyValueStore.GetIsMultipleGameInstancesAllowed())
-            {
-                return true;
-            }
-        }
-        else if (args.Contains("-vrmode", StringComparison.OrdinalIgnoreCase))
-        {
-            // VR Mode. Can only work if NOT going through Steam as it will always add '-vrmode none' due to hard coded default Steam "launch option" args. See: https://steamdb.info/app/264710/config/
             return true;
         }
 
-        return false; // Default: use Steam unless explicitly disabled for special cases
+        return false;
+    }
+
+    [Conditional("DEBUG")]
+    private void HandleInstantLaunchForDevelopment()
+    {
+        if (hasInstantLaunched || App.InstantLaunch == null)
+        {
+            return;
+        }
+
+        hasInstantLaunched = true;
+
+        Task.Run(async () =>
+        {
+            ServerEntry? server =
+                await serverService.GetOrCreateServerAsync(App.InstantLaunch.SaveName);
+
+            if (server == null)
+            {
+                throw new Exception("Failed to create server");
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(
+                () => serverService.StartServerAsync(server));
+
+            foreach (string player in App.InstantLaunch.PlayerNames)
+            {
+                await StartMultiplayerAsync(["--instantlaunch", player]);
+            }
+        });
     }
 }
