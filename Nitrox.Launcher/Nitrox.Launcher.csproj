@@ -82,22 +82,15 @@
     <!-- See: https://github.com/dotnet/msbuild/issues/5599 -->
     <Target Name="_NitroxFixBuildInsideVisualStudio" AfterTargets="$(_NitroxMoveDependenciesToLibTaskName)" Condition="'$(BuildingInsideVisualStudio)' == 'true'">
 
-        <Message Importance="High"
-                 Text="Running _FixBuildInsideVisualStudio on $(MSBuildProjectName)" />
+        <Message Importance="High" Text="Running _FixBuildInsideVisualStudio on $(MSBuildProjectName)" />
 
         <ItemGroup>
             <_FilesToCopy Include="$(MSBuildProjectDirectory)\..\NitroxPatcher\bin\$(Configuration)\net472\*" />
         </ItemGroup>
 
-        <Error Text="Unable to find NitroxPatcher files from _NitroxFixBuildInsideVisualStudio"
-               Condition="@(_FilesToCopy->Count()) == 0" />
+        <Error Text="Unable to find NitroxPatcher files from _NitroxFixBuildInsideVisualStudio" Condition="@(_FilesToCopy-&gt;Count()) == 0" />
 
-        <Copy SourceFiles="@(_FilesToCopy)"
-              DestinationFolder="$(MSBuildProjectDirectory)\$(OutputPath)\lib\net472\"
-              OverwriteReadOnlyFiles="True"
-              Retries="3"
-              RetryDelayMilliseconds="100"
-              SkipUnchangedFiles="True" />
+        <Copy SourceFiles="@(_FilesToCopy)" DestinationFolder="$(MSBuildProjectDirectory)\$(OutputPath)\lib\net472\" OverwriteReadOnlyFiles="True" Retries="3" RetryDelayMilliseconds="100" SkipUnchangedFiles="True" />
 
     </Target>
 
