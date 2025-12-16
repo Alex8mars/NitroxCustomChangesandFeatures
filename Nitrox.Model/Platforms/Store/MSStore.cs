@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Nitrox.Model.Helper;
@@ -21,10 +22,14 @@ public sealed class MSStore : IGamePlatform
 
     public static async Task<ProcessEx> StartGameAsync(string pathToGameExe, string launchArguments)
     {
+        IEnumerable<(string, string)> environment = BepInExEnvironment.MergeWith(
+            [(NitroxUser.LAUNCHER_PATH_ENV_KEY, NitroxUser.LauncherPath)],
+            pathToGameExe);
+
         return await Task.FromResult(
             ProcessEx.Start(
-                @"C:\Windows\System32\cmd.exe",
-                [(NitroxUser.LAUNCHER_PATH_ENV_KEY, NitroxUser.LauncherPath)],
+                @"C:\\Windows\\System32\\cmd.exe",
+                environment,
                 Path.GetDirectoryName(pathToGameExe),
                 @$"/C start /b {pathToGameExe} --nitrox ""{NitroxUser.LauncherPath}"" {launchArguments}",
                 createWindow: false)

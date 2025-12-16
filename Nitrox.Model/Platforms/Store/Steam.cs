@@ -315,6 +315,8 @@ public sealed class Steam : IGamePlatform
             result.EnvironmentVariables.Add("STEAM_OVERLAY_LINUX", "1"); // Enable Steam overlay and API for controller input and OSK support (Proton-specific)
         }
 
+        BepInExEnvironment.Apply(result, gameFilePath);
+
         return result;
 
         // function to get library path for given game id

@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Nitrox.Launcher.Models.Services;
 using Nitrox.Launcher.ViewModels;
@@ -64,12 +66,8 @@ internal static class GameInspect
 
     public static void WarnIfBepInExMods(string gameDir)
     {
-        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
-        {
-            return;
-        }
-        string bepRoot = Path.Combine(gameDir, "BepInEx");
-        if (!Directory.Exists(bepRoot))
+        string bepRoot = GetBepInExRoot(gameDir);
+        if (bepRoot == string.Empty)
         {
             return;
         }
@@ -93,5 +91,59 @@ internal static class GameInspect
                 return [];
             }
         }
+    }
+
+    public static bool HasBepInExInstallation(string gameDir)
+    {
+        if (string.IsNullOrWhiteSpace(gameDir))
+        {
+            return false;
+        }
+
+        if (File.Exists(Path.Combine(gameDir, "run_bepinex.sh")))
+        {
+            return true;
+        }
+
+        return GetBepInExRoot(gameDir) != string.Empty;
+    }
+
+    public static bool TryCreateBepInExStartInfo(string gameDir, string gameExePath, string launchArguments, out ProcessStartInfo startInfo)
+    {
+        startInfo = default!;
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return false; // Windows bootstrapper loads automatically via winhttp.dll
+        }
+
+        string scriptPath = Path.Combine(gameDir, "run_bepinex.sh");
+        if (!File.Exists(scriptPath))
+        {
+            return false;
+        }
+
+        string escapedArgs = launchArguments?.Trim() ?? string.Empty;
+        startInfo = new ProcessStartInfo
+        {
+            FileName = "/bin/sh",
+            Arguments = $"\"{scriptPath}\" \"{gameExePath}\" {escapedArgs}".Trim(),
+            WorkingDirectory = gameDir,
+            UseShellExecute = false,
+        };
+        startInfo.EnvironmentVariables[NitroxUser.LAUNCHER_PATH_ENV_KEY] = NitroxUser.LauncherPath;
+
+        return true;
+    }
+
+    private static string GetBepInExRoot(string gameDir)
+    {
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
+        {
+            return string.Empty;
+        }
+
+        string bepRoot = Path.Combine(gameDir, "BepInEx");
+        return Directory.Exists(bepRoot) ? bepRoot : string.Empty;
     }
 }
