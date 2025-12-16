@@ -5,7 +5,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -58,7 +57,8 @@ internal partial class LaunchGameViewModel(
         await Task.Run(() =>
         {
             GamePlatform = NitroxUser.GamePlatform?.Platform ?? Platform.NONE;
-            PlatformToolTip = GamePlatform.GetAttribute<DescriptionAttribute>()?.Description ?? "";
+            PlatformToolTip =
+                GamePlatform.GetAttribute<DescriptionAttribute>()?.Description ?? "";
             HandleInstantLaunchForDevelopment();
         }, cancellationToken);
     }
@@ -152,13 +152,16 @@ internal partial class LaunchGameViewModel(
         }
     }
 
-    private async Task StartSubnauticaAsync(string[]? args = null)
-        => await StartGameAsync(GameInfo.Subnautica, args);
+    private Task StartSubnauticaAsync(string[]? args = null)
+        => StartGameAsync(GameInfo.Subnautica, args);
 
     private async Task StartGameAsync(GameInfo gameInfo, string[]? args)
     {
-        string exeSuffix = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "MacOS" : string.Empty;
-        string exePath = Path.Combine(NitroxUser.GamePath, exeSuffix, gameInfo.ExeName);
+        string exeSuffix =
+            RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "MacOS" : string.Empty;
+
+        string exePath =
+            Path.Combine(NitroxUser.GamePath, exeSuffix, gameInfo.ExeName);
 
         if (!File.Exists(exePath))
         {
@@ -169,35 +172,39 @@ internal partial class LaunchGameViewModel(
             $"{keyValueStore.GetLaunchArguments(gameInfo)} " +
             $"{string.Join(" ", args ?? NitroxEnvironment.CommandLineArgs)}";
 
-        // 🔧 FIX #1: BepInEx bootstrap replacement
-        if (BepInExBootstrap.TryCreateStartInfo(
-                NitroxUser.GamePath,
-                exePath,
-                launchArgs,
-                out ProcessStartInfo bepinexStartInfo))
+        // ✅ Correct BepInEx environment application
+        ProcessStartInfo startInfo = new()
         {
-            ProcessEx bepinexGame = ProcessEx.From(bepinexStartInfo);
-            if (bepinexGame is null)
-            {
-                throw new Exception("Failed to start game via BepInEx bootstrapper");
-            }
-            return;
-        }
+            FileName = exePath,
+            Arguments = launchArgs,
+            WorkingDirectory = NitroxUser.GamePath,
+            UseShellExecute = false
+        };
 
-        // 🔧 FIX #2: No variable shadowing
+        BepInExEnvironment.Apply(startInfo, exePath);
+
         ProcessEx game = NitroxUser.GamePlatform switch
         {
             Steam => await Steam.StartGameAsync(
-                exePath, launchArgs, gameInfo.SteamAppId,
-                ShouldSkipSteam(launchArgs),
+                startInfo.FileName,
+                startInfo.Arguments,
+                gameInfo.SteamAppId,
+                ShouldSkipSteam(startInfo.Arguments),
                 keyValueStore.GetUseBigPictureMode()),
 
-            EpicGames => await EpicGames.StartGameAsync(exePath, launchArgs),
-            HeroicGames => await HeroicGames.StartGameAsync(gameInfo.EgsNamespace, launchArgs),
-            MSStore => await MSStore.StartGameAsync(exePath, launchArgs),
-            Discord => await Discord.StartGameAsync(exePath, launchArgs),
+            EpicGames => await EpicGames.StartGameAsync(
+                startInfo.FileName, startInfo.Arguments),
 
-            _ => throw new Exception("Unsupported game platform")
+            HeroicGames => await HeroicGames.StartGameAsync(
+                gameInfo.EgsNamespace, startInfo.Arguments),
+
+            MSStore => await MSStore.StartGameAsync(
+                startInfo.FileName, startInfo.Arguments),
+
+            Discord => await Discord.StartGameAsync(
+                startInfo.FileName, startInfo.Arguments),
+
+            _ => ProcessEx.From(startInfo)
         };
 
         if (game is null)
@@ -223,12 +230,7 @@ internal partial class LaunchGameViewModel(
             return false;
         }
 
-        if (args.Contains("-vrmode", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return false;
+        return args.Contains("-vrmode", StringComparison.OrdinalIgnoreCase);
     }
 
     [Conditional("DEBUG")]
